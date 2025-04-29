@@ -1,168 +1,119 @@
-#include <iostream> 
-#include <vector> 
-#include <queue> 
-#include <unordered_set> 
-#include <omp.h> 
-#include <chrono> 
- 
-using namespace std; 
-using namespace std::chrono; 
- 
-class Graph { 
-    int V; 
-    vector<int> *adj; 
- 
-public: 
-    Graph(int V) { 
-        this->V = V; 
-        adj = new vector<int>[V]; 
-    } 
- 
-    void addEdge(int u, int v) { 
-        adj[u].push_back(v); 
-        adj[v].push_back(u); 
-    } 
- 
-    void BFS_Normal(int start) { 
-        unordered_set<int> visited; 
-        queue<int> q; 
- 
-        visited.insert(start); 
-        q.push(start); 
- 
-        while (!q.empty()) { 
-            int u = q.front(); 
-            q.pop(); 
-            cout << u << " "; 
- 
-            for (int v : adj[u]) { 
-                if (visited.find(v) == visited.end()) { 
-                    visited.insert(v); 
-                    q.push(v); 
-                } 
-            } 
-        } 
-        cout << endl; 
-    } 
- 
-    void BFS_Parallel(int start) { 
-        unordered_set<int> visited; 
-        queue<int> q; 
- 
-        visited.insert(start); 
-        q.push(start); 
- 
-        while (!q.empty()) { 
-            int u = q.front(); 
-            q.pop(); 
-            cout << u << " "; 
- 
-            #pragma omp parallel for 
-            for (size_t i = 0; i < adj[u].size(); i++) { 
-                int v = adj[u][i]; 
-                if (visited.find(v) == visited.end()) { 
-                    #pragma omp cri cal 
-                    { 
-                        visited.insert(v); 
-                        q.push(v); 
-                    } 
-                } 
-            } 
-        } 
-        cout << endl; 
-    } 
- 
-    void DFS_Normal(int start) { 
-        vector<bool> visited(V, false); 
-        DFS_Util(start, visited); 
-        cout << endl; 
-    } 
- 
-    void DFS_Parallel(int start) { 
-        vector<bool> visited(V, false); 
-        #pragma omp parallel 
-        { 
-            #pragma omp single nowait 
-            { 
-                DFS_Util(start, visited); 
-            } 
-        } 
-        cout << endl; 
-    } 
- 
-private: 
-    void DFS_Util(int u, vector<bool>& visited) { 
-        visited[u] = true; 
-        cout << u << " "; 
- 
-        for (int v : adj[u]) { 
-            if (!visited[v]) { 
-                DFS_Util(v, visited); 
-            } 
-        } 
-    } 
-}; 
- 
-int main() { 
-    int V, edgeCount; 
-    cout << "Enter number of ver ces and edges: "; 
-    cin >> V >> edgeCount; 
- 
-    Graph g(V); 
-    cout << "Provide edges (u v):\n"; 
- 
-    for (int i = 0; i < edgeCount; i++) { 
-        int u, v; 
-        cin >> u >> v; 
-        g.addEdge(u, v); 
-    } 
- 
-    // Measure BFS Normal Time 
-    auto start = high_resolution_clock::now(); 
-    g.BFS_Normal(0); 
-    auto stop = high_resolution_clock::now(); 
-    cout << "BFS (Normal) Time: " <<duration_cast<microseconds>(stop - start).count() << "µs\n"; 
- 
-    // Measure BFS Parallel Time 
-    start = high_resolution_clock::now(); 
-    g.BFS_Parallel(0); 
-    stop = high_resolution_clock::now(); 
-    cout << "BFS (Parallel) Time: " <<duration_cast<microseconds>(stop - start).count() << "µs\n"; 
- 
-    // Measure DFS Normal Time 
-    start = high_resolution_clock::now(); 
-    g.DFS_Normal(0); 
-    stop = high_resolution_clock::now(); 
-    cout << "DFS (Normal) Time: " <<duration_cast<microseconds>(stop - start).count() << "µs\n"; 
- 
-    // Measure DFS Parallel Time 
-    start = high_resolution_clock::now(); 
-    g.DFS_Parallel(0); 
-    stop = high_resolution_clock::now(); 
-    cout << "DFS (Parallel) Time: " <<duration_cast<microseconds>(stop - start).count() << "µs\n"; 
-    return 0; 
-} 
- 
-// g++ -fopenmp -o bfsdfs bfsdfs.cpp
-// ./bfsdfs
+#include<iostream>
+#include<vector>
+#include<queue>
+#include<omp.h>
 
-// Output: 
-// Enter number of ver ces and edges: 6 7 
-// 0 1 
-// 0 2 
-// 1 3 
-// 1 4 
-// 2 4 
-// 3 5 
-// 4 5 
-// BFS (Normal): [0] [1] [2] [3] [4] [5]  
-// BFS (Normal) Time: 32µs 
- 
-// BFS (Parallel): [0] [1] [2] [3] [4] [5]  
-// BFS (Parallel) Time: 27µs 
- 
-// DFS (Normal): {0} {1} {3} {5} {4} {2}  
-// DFS (Normal) Time: 22µs 
- 
-// DFS (Parallel): {0} {1} {3} {5} {4} {2}  
-// DFS (Parallel) Time: 19µs 
+using namespace std;
+
+void bfs(int start, const vector<vector<int>>& adj, vector<bool>& visited){
+    queue<int> q;
+    visited[start] = true;
+    q.push(start);
+
+    while (!q.empty()){
+        int node = q.front();
+        q.pop();
+
+        cout<<"Visited (BFS) Node : "<<node<<endl;
+
+        vector<int> neighbors;
+
+        #pragma omp parallel for
+        for(int i = 0; i < adj[node].size() ; i++){
+            int neighbor = adj[node][i];
+            int thread_id = omp_get_thread_num();
+
+            if(!visited[neighbor]){
+                #pragma omp critical
+                {
+                    if(!visited[neighbor]){
+                        visited[neighbor] = true;
+                        neighbors.push_back(neighbor);
+                        cout<<"Thread "<< thread_id << " processing Neighbor (BFS) "<<neighbor<<endl;
+
+                    }
+                }
+            }
+        }
+        for(int neighbor:neighbors){
+            q.push(neighbor);
+        }
+    }
+}
+
+
+void dfs(int node, const vector<vector<int>>& adj, vector<bool>& visited) {
+    int thread_id = omp_get_thread_num();
+
+    #pragma omp critical
+    {
+        visited[node] = true;
+        cout << "Thread " << thread_id << " visited (DFS) Node: " << node << endl;
+    }
+
+    for (int i = 0; i < adj[node].size(); ++i) {
+        int neighbor = adj[node][i];
+        
+        bool need_visit = false;
+        
+        #pragma omp critical
+        {
+            if (!visited[neighbor]) {
+                visited[neighbor] = true;
+                need_visit = true;
+                cout << "Thread " << thread_id << " preparing DFS for neighbor: " << neighbor << endl;
+            }
+        }
+
+        if (need_visit) {
+            #pragma omp task
+            {
+                dfs(neighbor, adj, visited);
+            }
+        }
+    }
+
+    #pragma omp taskwait
+}
+
+
+int main() {
+    // omp_set_num_threads(8);
+
+    int n, m; 
+    cout << "Enter number of nodes and edges: ";
+    cin >> n >> m;
+
+    vector<vector<int>> adj(n);
+
+    cout << "Enter edges (u v):" << endl;
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    vector<bool> visited(n, false);
+
+    cout << "\nBFS starting from node 0:\n";
+    double start_bfs = omp_get_wtime(); 
+    bfs(0, adj, visited);
+    double end_bfs = omp_get_wtime();
+    cout << "Time taken for BFS: " << (end_bfs - start_bfs) << " seconds\n";
+
+    visited.assign(n, false);
+
+    cout << "\nDFS starting from node 0:\n";
+    double start_dfs = omp_get_wtime(); 
+    #pragma omp parallel
+    {
+        #pragma omp single
+        dfs(0, adj, visited);
+    }    
+    double end_dfs = omp_get_wtime();
+    cout << "Time taken for DFS: " << (end_dfs - start_dfs) << " seconds\n";
+
+    return 0;
+}
+

@@ -96,26 +96,6 @@ from keras.models import Sequential
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
-
-sc = StandardScaler()
-X_train = sc.fit_transform(X_train)
-X_test = sc.transform(X_test)
-
-
-model = Sequential()
-model.add(Dense(128, activation='relu', input_dim=13))
-model.add(Dense(64, activation='relu'))
-model.add(Dense(32, activation='relu'))
-model.add(Dense(16, activation='relu'))
-model.add(Dense(1))
-
-
-import keras
-from keras.layers import Dense
-from keras.models import Sequential
-from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
-
 # Assuming X_train and X_test are defined and initialized previously
 # Assuming y_train is also defined and initialized
 
@@ -124,6 +104,7 @@ sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
+# model.add(Input(shape=(13,)))
 # Creating the neural network model
 model = Sequential()
 model.add(Dense(128, activation='relu', input_dim=13))
@@ -135,6 +116,21 @@ model.add(Dense(1))
 # Compiling the model
 model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
 
+# Define EarlyStopping callback
+early_stop = EarlyStopping(
+    monitor='val_loss',  # What to monitor: validation loss
+    patience=3,          # How many epochs to wait after no improvement
+    restore_best_weights=True  # After stopping, restore model from best epoch
+)
+
+# # Fit the model with early stopping
+# history = model.fit(
+#     X_train, y_train,
+#     epochs=100,               
+#     validation_split=0.05,
+#     callbacks=[early_stop],
+#     verbose = 1# 👈 Attach the callback here
+# )
 # Visualizing the model architecture
 keras.utils.plot_model(model, to_file='model.png', show_shapes=True, show_layer_names=True)
 
